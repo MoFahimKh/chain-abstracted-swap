@@ -1,131 +1,88 @@
-# Nuvolari.ai's – Chain Abstracted Swap using privy authx`
+# OneBalance Chain-Abstracted Swap App
 
-A Next.js + TypeScript dApp demonstrating **chain-abstracted, gasless swaps** with the **OneBalance API** and **Privy** authentication/embedded wallets. Includes a dark **glassmorphism** UI.
+A Next.js application demonstrating chain-abstracted token swaps using [OneBalance](https://onebalance.io) and [Privy](https://www.privy.io/) authentication.
 
-## ✨ Features
+## Features
 
-- 🔐 Privy auth (email, social, embedded wallet)
-- 🪄 USDC ⇄ ETH chain-abstracted swaps
-- ⚡ Gasless: pay fees in USDC/ETH, no native token needed
-- 🧾 Live quote estimation
-- 📡 Transaction status polling
-- 🎨 Apple-style glass UI, mobile-ready
+* **Privy Authentication** for seamless onboarding with email, social login, or wallet.
+* **Chain-Abstracted Swaps** allowing token swaps across any chain without bridging.
+* **Gasless Transactions** with OneBalance smart accounts.
+* **Glassmorphism Dark UI** design for a modern, sleek interface.
+* **Real-time Transaction Monitoring** with automatic status polling.
+* **Account Info & Balances** fetched via OneBalance APIs.
 
-## 🗂 Structure
+## Tech Stack
+
+* **Framework:** Next.js 13 (App Router)
+* **UI:** Tailwind CSS with custom GlassCard components
+* **Auth:** Privy React Auth
+* **Blockchain SDKs:** OneBalance API, viem
+* **State Management:** React hooks
+
+## Getting Started
+
+### Prerequisites
+
+* Node.js 18+
+* npm or yarn
+* Privy App ID and configuration
+* OneBalance API credentials
+
+### Installation
+
+```bash
+git clone https://github.com/MoFahimKh/chain-abstracted-swap
+cd chain-abstracted-swap
+pnpm install
+```
+
+### Environment Variables
+
+Create a `.env.local` file in the root directory:
+
+```env
+NEXT_PUBLIC_PRIVY_APP_ID=your_privy_app_id
+ONEBALANCE_API_KEY=your_onebalance_api_key
+```
+
+### Running the App
+
+```bash
+pnpm run dev
+```
+
+The app will run at `http://localhost:3000`.
+
+## Folder Structure
 
 ```
 src/
   app/
-    page.tsx                  # Landing/Login (glass UI)
     dashboard/
-      page.tsx                # Main dashboard
-      NavBar.tsx
-      SwapCard.tsx            # Uniswap-style form (calls useOneBalance)
+      page.tsx          # Dashboard UI
+      SwapCard.tsx      # Swap interface
+      NavBar.tsx        # Top navigation
       AccountInfoCard.tsx
       TransactionStatusCard.tsx
-  components/ui/
-    GlassCard.tsx
+    page.tsx            # Landing/login page
+  components/
+    ui/GlassCard.tsx    # Reusable glassmorphism card
   hooks/
-    useOneBalance.ts          # All wallet/account/swap logic
-  lib/
-    onebalance.ts             # OneBalance API calls
-    privySigningUtils.ts      # Quote signing via Privy wallet
-    types/
-      quote.ts
-  utils/
-    copyToClipboard.ts
-    truncateAddress.ts
+    useOneBalance.ts    # OneBalance logic hook
+  lib/                  # API utilities
+  utils/                # Helper functions
 ```
 
-## 🚀 Setup
+## How It Works
 
-### Prerequisites
+1. **User logs in** via Privy (email, social, or wallet).
+2. **OneBalance account address** is predicted for the connected wallet.
+3. **Balances** for USDC and ETH are fetched via OneBalance API.
+4. **Swap flow:**
 
-- Node.js 18+
-- npm or yarn
-- Privy App ID
-- OneBalance API key
-
-### Install
-
-```bash
-pnpm install
-# or
-yarn
-```
-
-### Env
-
-Create `.env`:
-
-```bash
-
-NEXT_PUBLIC_PRIVY_APP_ID=
-NEXT_PUBLIC_ONEBALANCE_API_KEY=
-
-```
-
-### Run
-
-```bash
-pnpm run dev
-# or
-yarn dev
-```
-
-Open [http://localhost:3000](http://localhost:3000)
-
-## 🧠 How It Works
-
-### 1) Auth (Privy)
-
-`usePrivy()` handles login/logout and exposes the embedded wallet address.
-
-### 2) Smart Account Prediction
-
-`predictAccountAddress(sessionAddress, adminAddress)` derives the OneBalance smart account (SCA) for the user.
-
-### 3) Aggregated Balances
-
-`getAggregatedBalance(accountAddress)` fetches USDC/ETH balances across supported chains.
-
-### 4) Quote
-
-`getQuote({ from, to })` returns an estimated destination amount for swaps.
-
-### 5) Signing + Execute
-
-`signQuote(quote, embeddedWallet)` signs the quote.
-`executeQuote(signedQuote)` submits it to OneBalance.
-
-### 6) Status Polling
-
-`checkTransactionStatus(quoteId)` is polled until `COMPLETED` or `FAILED`.
-
-All of the above is wrapped in `useOneBalance()` and consumed by UI components.
-
-## 🔑 Key UX Details
-
-- **SwapCard** computes an estimated rate (1 from ≈ X to) and disables the **Swap** button when:
-
-  - Amount ≤ 0 or below minimum (ETH: `1 wei` → `1e-18`, USDC: `1e-6`)
-  - No SCA balance for the selected “from” token
-
-- Notes guide users to **fund their SCA** (funding an EOA won’t be used for swaps).
-
-## 🧪 Useful Scripts
-
-```bash
-pnpm run dev        # local dev
-pnpm run build      # production build
-pnpm run start      # run prod build
-pnpm run lint       # lint
-```
-
-## 📚 References
-
-- OneBalance Docs: [https://docs.onebalance.io/](https://docs.onebalance.io/)
-- Privy Docs: [https://docs.privy.io/](https://docs.privy.io/)
-- Next.js: [https://nextjs.org/docs](https://nextjs.org/docs)
-- viem: [https://viem.sh/](https://viem.sh/)
+   * User enters amount & direction.
+   * App fetches an estimated quote.
+   * On confirmation, the quote is signed and executed.
+   * Transaction status is polled until complete.
+5. **UI updates** to reflect the new balances and status.
 
