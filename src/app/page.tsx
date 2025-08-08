@@ -25,7 +25,7 @@ export default function Home() {
         <section className="w-full max-w-lg rounded-2xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl shadow-[0_8px_30px_rgba(0,0,0,0.12)]">
           <header className="text-center mb-6">
             <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-white/90">
-              Novulari.ai's — Chain Abstracted Swap
+              Novulari.ai — Chain Abstracted Swap
             </h1>
             <p className="mt-3 text-sm text-white/60">
               Powered by OneBalance + Privy.
