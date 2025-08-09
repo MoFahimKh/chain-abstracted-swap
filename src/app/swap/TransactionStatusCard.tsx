@@ -1,12 +1,10 @@
 "use client";
 
+import { useOneBalance } from "@/hooks/useOneBalance";
 import React from "react";
 
-type Props = {
-  status: any;
-};
-
-export const TransactionStatusCard: React.FC<Props> = ({ status }) => {
+export const TransactionStatusCard: React.FC = () => {
+  const ob = useOneBalance();
   return (
     <div className="p-6">
       <h3 className="text-sm font-semibold text-white/80 mb-3">
@@ -17,27 +15,27 @@ export const TransactionStatusCard: React.FC<Props> = ({ status }) => {
           <span className="text-white/60">Status:</span>
           <span
             className={`font-medium ${
-              status.status === "COMPLETED"
+              ob.status.status === "COMPLETED"
                 ? "text-emerald-300"
-                : status.status === "FAILED"
+                : ob.status.status === "FAILED"
                 ? "text-rose-300"
                 : "text-amber-300"
             }`}
           >
-            {status.status || "Pending"}
+            {ob.status.status || "Pending"}
           </span>
         </div>
 
-        {status.originChainOperations?.length > 0 && (
+        {ob.status.originChainOperations?.length > 0 && (
           <ExplorerRow
             label="Origin Chain:"
-            url={status.originChainOperations[0].explorerUrl}
+            url={ob.status.originChainOperations[0].explorerUrl}
           />
         )}
-        {status.destinationChainOperations?.length > 0 && (
+        {ob.status.destinationChainOperations?.length > 0 && (
           <ExplorerRow
             label="Destination Chain:"
-            url={status.destinationChainOperations[0].explorerUrl}
+            url={ob.status.destinationChainOperations[0].explorerUrl}
           />
         )}
       </div>

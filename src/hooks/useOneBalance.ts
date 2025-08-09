@@ -104,6 +104,7 @@ export function useOneBalance() {
   const fetchBalances = async (address: string) => {
     try {
       const data = await getAggregatedBalance(address);
+      console.log(data);
       const usdc = data.balanceByAggregatedAsset?.find(
         (a: any) => a.aggregatedAssetId === "ds:usdc"
       );

@@ -1,12 +1,11 @@
 "use client";
 
 import { GlassCard } from "../../components/ui/GlassCard";
-import { NavBar } from "./NavBar";
+import { NavBar } from "../../components/NavBar";
 import { AccountInfoCard } from "./AccountInfoCard";
 import { SwapCard } from "./SwapCard";
 import { TransactionStatusCard } from "./TransactionStatusCard";
 import { useOneBalance } from "@/hooks/useOneBalance";
-import { copyToClipboard } from "@/utils/copyToClipboard";
 
 export default function SwapPage() {
   const ob = useOneBalance();
@@ -26,18 +25,11 @@ export default function SwapPage() {
         <div className="absolute -bottom-24 -right-24 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
       </div>
 
-      <NavBar
-        title="Chain Abstracted Swap"
-        accountLabel={ob.connectedLabel || "Connected"}
-        onLogout={ob.handleLogout}
-      />
+      <NavBar title="Chain Abstracted Swap" />
 
       <div className="relative mx-auto max-w-3xl px-4 py-8">
         <GlassCard className="mb-6">
-          <AccountInfoCard
-            accountAddress={ob.accountAddress}
-            onCopy={() => copyToClipboard(ob.accountAddress ?? "")}
-          />
+          <AccountInfoCard />
         </GlassCard>
 
         <div className="grid grid-cols-1 gap-6">
@@ -68,7 +60,7 @@ export default function SwapPage() {
 
           {ob.status && (
             <GlassCard>
-              <TransactionStatusCard status={ob.status} />
+              <TransactionStatusCard />
             </GlassCard>
           )}
         </div>

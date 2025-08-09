@@ -1,22 +1,18 @@
+// src/app/dashboard/NavBar.tsx
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { useOneBalance } from "@/hooks/useOneBalance";
 
 type Props = {
-  title: string;
-  accountLabel: string;
-  onLogout: () => void;
-  onCopy?: () => void;
-  onViewExplorer?: () => void;
+  title?: string;
 };
 
 export const NavBar: React.FC<Props> = ({
-  title,
-  accountLabel,
-  onLogout,
-  onCopy,
-  onViewExplorer,
+  title = "Chain Abstracted Swap",
 }) => {
+  const { connectedLabel, connectedRaw, accountAddress, handleLogout } =
+    useOneBalance();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
 
@@ -28,6 +24,25 @@ export const NavBar: React.FC<Props> = ({
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
+
+  const addr = accountAddress || connectedRaw || "";
+  const label = connectedLabel || "Connected";
+
+  const copy = async () => {
+    if (!addr) return;
+    try {
+      await navigator.clipboard.writeText(addr);
+    } catch {}
+  };
+
+  const viewOnExplorer = () => {
+    if (!addr) return;
+    window.open(
+      `https://blockscan.com/address/${addr}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  };
 
   return (
     <nav className="sticky top-0 z-20 w-full backdrop-blur-xl bg-[#0B0F17]/60 border-b border-white/10">
@@ -47,8 +62,8 @@ export const NavBar: React.FC<Props> = ({
               className="inline-block h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_2px_rgba(52,211,153,0.45)]"
               aria-hidden
             />
-            <span className="truncate max-w-[160px]" title={accountLabel}>
-              {accountLabel}
+            <span className="truncate max-w-[160px]" title={label}>
+              {label}
             </span>
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -67,32 +82,28 @@ export const NavBar: React.FC<Props> = ({
               role="menu"
               className="absolute right-0 mt-2 w-48 rounded-xl border border-white/10 bg-[#0B0F17]/80 backdrop-blur-xl shadow-lg overflow-hidden"
             >
-              {onCopy && (
-                <button
-                  onClick={() => {
-                    setOpen(false);
-                    onCopy();
-                  }}
-                  className="block w-full text-left px-3 py-2 text-sm text-white/90 hover:bg-white/10"
-                >
-                  Copy address
-                </button>
-              )}
-              {onViewExplorer && (
-                <button
-                  onClick={() => {
-                    setOpen(false);
-                    onViewExplorer();
-                  }}
-                  className="block w-full text-left px-3 py-2 text-sm text-white/90 hover:bg-white/10"
-                >
-                  View on explorer
-                </button>
-              )}
               <button
                 onClick={() => {
                   setOpen(false);
-                  onLogout();
+                  copy();
+                }}
+                className="block w-full text-left px-3 py-2 text-sm text-white/90 hover:bg-white/10"
+              >
+                Copy address
+              </button>
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  viewOnExplorer();
+                }}
+                className="block w-full text-left px-3 py-2 text-sm text-white/90 hover:bg-white/10"
+              >
+                View on explorer
+              </button>
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  handleLogout();
                 }}
                 className="block w-full text-left px-3 py-2 text-sm text-white/90 hover:bg-white/10"
               >
