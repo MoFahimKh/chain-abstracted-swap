@@ -75,8 +75,8 @@ export function useOneBalance() {
         setAccountAddress(predicted);
         await fetchBalances(predicted);
       } catch (err) {
+        if (!accountAddress) setError("Failed to set up OneBalance account");
         console.error("Error setting up account:", err);
-        !accountAddress && setError("Failed to set up OneBalance account");
       }
     }
 

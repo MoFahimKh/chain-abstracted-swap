@@ -40,14 +40,13 @@ export const signOperation =
   (operation: ChainOperation): (() => Promise<ChainOperation>) =>
   async () => {
     const provider = await embeddedWallet.getEthereumProvider();
-    const requiredChainId = operation?.typedDataToSign?.domain?.chainId;
+    const typedData = operation.typedDataToSign as Eip712TypedData;
+    const requiredChainId = typedData.domain.chainId;
     if (typeof requiredChainId !== "number") {
       throw new Error("typedDataToSign.domain.chainId is missing.");
     }
     await ensureChain(provider, requiredChainId);
-    const signature = await signTypedDataWithPrivy(embeddedWallet)(
-      operation.typedDataToSign as Eip712TypedData
-    );
+    const signature = await signTypedDataWithPrivy(embeddedWallet)(typedData);
     return {
       ...operation,
       userOp: {
