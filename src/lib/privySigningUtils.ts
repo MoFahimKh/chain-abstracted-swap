@@ -1,19 +1,15 @@
 import { Address, createWalletClient, custom, Hash } from "viem";
 import { ConnectedWallet } from "@privy-io/react-auth";
 import { ChainOperation, Quote } from "@/lib/types/quote";
-import { sepolia } from "viem/chains";
-
-// Create a function to sign typed data with Privy wallet
-console.log("sepolia", sepolia);
+import { base } from "viem/chains";
 
 export const signTypedDataWithPrivy =
   (embeddedWallet: ConnectedWallet) =>
   async (typedData: any): Promise<Hash> => {
-    console.log("sepolia", sepolia);
     const provider = await embeddedWallet.getEthereumProvider();
     const walletClient = createWalletClient({
-      chain: sepolia,
       transport: custom(provider),
+      chain: base,
       account: embeddedWallet.address as Address,
     });
 
@@ -72,17 +68,3 @@ export const sequentialPromises = (
     Promise.resolve([])
   );
 };
-
-// export const fetchSupportedChains = () => {
-//   const config = getRuntimeConfig();
-//   const url = new URL("/api/chains/supported-list", config.VITE_ONEBALANCE_API);
-
-//   return fetch(url, {
-//     headers: {
-//       "x-api-key": config.VITE_ONEBALANCE_API_KEY,
-//     },
-//   }).then(async (response) => {
-//     if (!response.ok) throw await response.json();
-//     return response.json();
-//   });
-// };

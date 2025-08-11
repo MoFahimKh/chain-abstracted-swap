@@ -70,7 +70,7 @@ export const SwapCard: React.FC = () => {
             <TokenChip symbol={fromSymbol} />
           </div>
           <div className="mt-2 flex items-center justify-between text-[11px]">
-            <span className="text-white/50">From any chain</span>
+            <span className="text-white/50">From chain</span>
             <span className="text-white/40">
               Min:{" "}
               {fromSymbol === "ETH"
@@ -119,7 +119,7 @@ export const SwapCard: React.FC = () => {
             </div>
             <TokenChip symbol={toSymbol} />
           </div>
-          <div className="mt-2 text-[11px] text-white/50">To any chain</div>
+          <div className="mt-2 text-[11px] text-white/50">To chain</div>
         </div>
       </div>
 
@@ -146,7 +146,7 @@ export const SwapCard: React.FC = () => {
 
       <button
         onClick={handleSwap}
-        disabled={mustDisable}
+        // disabled={mustDisable}
         className={`mt-4 w-full py-3 md:py-3.5 rounded-2xl font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-[#FFAB40]/40 ${
           mustDisable
             ? "bg-white/10 text-white/40 cursor-not-allowed border border-white/10"
