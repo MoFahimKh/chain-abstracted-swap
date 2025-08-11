@@ -1,7 +1,7 @@
 import { Address, createWalletClient, custom, Hash } from "viem";
 import { ConnectedWallet } from "@privy-io/react-auth";
 import { ChainOperation, Quote } from "@/lib/types/quote";
-import { base } from "viem/chains";
+// import { base } from "viem/chains";
 
 export const signTypedDataWithPrivy =
   (embeddedWallet: ConnectedWallet) =>
@@ -9,7 +9,7 @@ export const signTypedDataWithPrivy =
     const provider = await embeddedWallet.getEthereumProvider();
     const walletClient = createWalletClient({
       transport: custom(provider),
-      chain: base,
+      // chain: base,
       account: embeddedWallet.address as Address,
     });
 

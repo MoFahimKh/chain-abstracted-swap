@@ -37,14 +37,18 @@ export default function SwapPage() {
             <SwapCard />
           </GlassCard>
 
-          {ob.error && (
-            <GlassCard>
-              <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300">
-                <p className="font-medium">Error</p>
-                <p className="text-sm">{ob.error}</p>
-              </div>
-            </GlassCard>
-          )}
+          {ob.error &&
+            !(
+              ob.error === "Failed to set up OneBalance account" &&
+              ob.accountAddress
+            ) && (
+              <GlassCard>
+                <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300">
+                  <p className="font-medium">Error</p>
+                  <p className="text-sm">{ob.error}</p>
+                </div>
+              </GlassCard>
+            )}
 
           {ob.success && (
             <GlassCard>
