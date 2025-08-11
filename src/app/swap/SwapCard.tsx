@@ -1,6 +1,6 @@
 "use client";
 
-import React, { ChangeEvent } from "react";
+import React, { ChangeEvent, useEffect, useState } from "react";
 import { useOneBalance } from "@/hooks/useOneBalance";
 import { MIN_ETH, MIN_USDC } from "@/utils/constants";
 
@@ -21,7 +21,10 @@ export const SwapCard: React.FC = () => {
     setEstimatedAmount,
     embeddedWallet,
     fetchEstimatedQuote,
+    status,
   } = useOneBalance();
+
+  const [flashStatus, setFlashStatus] = useState<string | null>(null);
 
   const toSymbol = swapDirection === "USDC_TO_ETH" ? "ETH" : "USDC";
   const fromSymbol = swapDirection === "USDC_TO_ETH" ? "USDC" : "ETH";
@@ -44,7 +47,26 @@ export const SwapCard: React.FC = () => {
   const isInvalid = isNaNAmount || isZeroOrNeg || isBelowMin || isOverBalance;
 
   const hasBalance = fromBalanceNum > 0;
-  const mustDisable = loading || !accountAddress || isInvalid || !hasBalance;
+
+  const isBusy =
+    status?.status === "PENDING" || status?.status === "PROCESSING";
+  const mustDisable =
+    loading || !accountAddress || isInvalid || !hasBalance || isBusy;
+
+  useEffect(() => {
+    const s = status?.status;
+    if (!s) {
+      setFlashStatus(null);
+      return;
+    }
+    if (s === "PENDING" || s === "PROCESSING") {
+      setFlashStatus(s);
+      return;
+    }
+    setFlashStatus(s);
+    const t = setTimeout(() => setFlashStatus(null), 3000);
+    return () => clearTimeout(t);
+  }, [status?.status]);
 
   const handleSwapAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.trim();
@@ -58,16 +80,52 @@ export const SwapCard: React.FC = () => {
     const amount = Number(raw);
     if (!Number.isFinite(amount) || amount <= 0) return;
 
-    const fromSymbol = swapDirection === "USDC_TO_ETH" ? "USDC" : "ETH";
-    const min = fromSymbol === "ETH" ? MIN_ETH : MIN_USDC;
+    const fromSymbolLocal = swapDirection === "USDC_TO_ETH" ? "USDC" : "ETH";
+    const min = fromSymbolLocal === "ETH" ? MIN_ETH : MIN_USDC;
     const balance = Number(
-      (fromSymbol === "USDC" ? usdcBalance : ethBalance) || "0"
+      (fromSymbolLocal === "USDC" ? usdcBalance : ethBalance) || "0"
     );
 
     if (amount < min || amount > balance) return;
 
     if (accountAddress && embeddedWallet) fetchEstimatedQuote(raw);
   };
+
+  const renderStatus = () => {
+    const s =
+      status?.status === "PENDING" || status?.status === "PROCESSING"
+        ? status?.status
+        : flashStatus;
+    if (!s) return null;
+
+    const base = "mt-3 text-center text-sm font-medium";
+    if (s === "PENDING" || s === "PROCESSING") {
+      return (
+        <div className={`${base} text-yellow-300`}>
+          ⏳ Transaction {s === "PENDING" ? "Pending" : "Processing"}...
+        </div>
+      );
+    }
+    if (s === "COMPLETED") {
+      return (
+        <div className={`${base} text-green-400`}>✅ Transaction Completed</div>
+      );
+    }
+    if (s === "FAILED") {
+      return (
+        <div className={`${base} text-rose-400`}>❌ Transaction Failed</div>
+      );
+    }
+    if (s === "UNKNOWN") {
+      return (
+        <div className={`${base} text-white/70`}>
+          ⚠️ Status Unknown (timeout). Check later or refresh.
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-3 md:mb-4">
@@ -142,6 +200,7 @@ export const SwapCard: React.FC = () => {
             aria-label="Reverse swap direction"
             title="Reverse swap direction"
             className="rounded-full border border-white/10 bg-white/10 px-3 py-2 text-white hover:bg-white/20 transition-all shadow-[0_0_0_0_rgba(0,0,0,0)] hover:shadow-[0_0_20px_2px_rgba(255,171,64,0.25)]"
+            disabled={isBusy}
           >
             ↕
           </button>
@@ -207,6 +266,8 @@ export const SwapCard: React.FC = () => {
           "Swap"
         )}
       </button>
+
+      {renderStatus()}
 
       {fromSymbol === "USDC" && (
         <div className="mt-2 text-[11px] text-white/60 text-center">

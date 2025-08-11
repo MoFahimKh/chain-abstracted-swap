@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
 import { formatUnits } from "viem";
@@ -17,6 +17,8 @@ import { Quote } from "@/lib/types/quote";
 import { truncateAddress } from "@/utils/truncateAddress";
 
 export type SwapDirection = "USDC_TO_ETH" | "ETH_TO_USDC";
+
+type TxStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "UNKNOWN";
 
 export function useOneBalance() {
   const router = useRouter();
@@ -40,17 +42,28 @@ export function useOneBalance() {
   const [fetchingQuote, setFetchingQuote] = useState(false);
 
   const [quote, setQuote] = useState<Quote | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [swapping, setSwapping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const [status, setStatus] = useState<any>(null);
+  const [status, setStatus] = useState<{
+    status: TxStatus;
+    [k: string]: any;
+  } | null>(null);
   const [isPolling, setIsPolling] = useState(false);
-  const statusPollingRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Refs for intervals/timeouts & “mounted” guard
+  const statusIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const statusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeQuoteIdRef = useRef<string | null>(null);
+  const mountedRef = useRef(false);
 
   // Setup account + initial balances
   useEffect(() => {
+    mountedRef.current = true;
+
     async function setup() {
       if (!embeddedWallet?.address) return;
       try {
@@ -58,17 +71,22 @@ export function useOneBalance() {
           embeddedWallet.address,
           embeddedWallet.address
         );
+        if (!mountedRef.current) return;
         setAccountAddress(predicted);
         await fetchBalances(predicted);
       } catch (err) {
         console.error("Error setting up account:", err);
-        setError("Failed to set up OneBalance account");
+        !accountAddress && setError("Failed to set up OneBalance account");
       }
     }
+
     if (ready && authenticated) setup();
 
+    // Cleanup: clear timers on unmount
     return () => {
-      if (statusPollingRef.current) clearInterval(statusPollingRef.current);
+      mountedRef.current = false;
+      if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
+      if (statusTimeoutRef.current) clearTimeout(statusTimeoutRef.current);
     };
   }, [embeddedWallet, ready, authenticated]);
 
@@ -81,14 +99,19 @@ export function useOneBalance() {
   const toggleSwapDirection = () => {
     setQuote(null);
     setEstimatedAmount(null);
-    setSwapDirection((prev) =>
-      prev === "USDC_TO_ETH" ? "ETH_TO_USDC" : "USDC_TO_ETH"
-    );
-    const nextDefault = swapDirection === "USDC_TO_ETH" ? "0.001" : "5.00";
+
+    // compute next direction & sensible default
+    const nextDirection =
+      swapDirection === "USDC_TO_ETH" ? "ETH_TO_USDC" : "USDC_TO_ETH";
+    const nextDefault = nextDirection === "USDC_TO_ETH" ? "5.00" : "0.001";
+
+    setSwapDirection(nextDirection);
     setSwapAmount(nextDefault);
+
+    // refetch estimate with the new direction
     setTimeout(() => {
       if (accountAddress && embeddedWallet) fetchEstimatedQuote(nextDefault);
-    }, 250);
+    }, 200);
   };
 
   // Data
@@ -111,6 +134,7 @@ export function useOneBalance() {
           ? parseFloat(formatUnits(BigInt(eth.balance), 18)).toFixed(6)
           : "0.000000"
       );
+
       if (address && embeddedWallet) fetchEstimatedQuote(swapAmount);
     } catch (err) {
       console.error("Error fetching balances:", err);
@@ -173,30 +197,72 @@ export function useOneBalance() {
     }
   };
 
-  // Polling
+  // Polling (robust)
+  const clearStatusTimers = () => {
+    if (statusIntervalRef.current) {
+      clearInterval(statusIntervalRef.current);
+      statusIntervalRef.current = null;
+    }
+    if (statusTimeoutRef.current) {
+      clearTimeout(statusTimeoutRef.current);
+      statusTimeoutRef.current = null;
+    }
+  };
+
   const startStatusPolling = (quoteId: string) => {
-    if (statusPollingRef.current) clearInterval(statusPollingRef.current);
+    clearStatusTimers();
+    activeQuoteIdRef.current = quoteId;
     setIsPolling(true);
-    statusPollingRef.current = setInterval(async () => {
+
+    // Start with “pending” immediately
+    setStatus({ status: "PENDING" });
+
+    // Fail-safe: stop after 2 minutes if no terminal state
+    statusTimeoutRef.current = setTimeout(() => {
+      if (!mountedRef.current) return;
+      clearStatusTimers();
+      setIsPolling(false);
+      setStatus((prev) =>
+        prev?.status === "COMPLETED" || prev?.status === "FAILED"
+          ? prev
+          : {
+              status: "UNKNOWN",
+              reason: "Timeout while waiting for completion",
+            }
+      );
+    }, 120_000);
+
+    // Poll every 3s
+    statusIntervalRef.current = setInterval(async () => {
       try {
         const s = await checkTransactionStatus(quoteId);
-        setStatus(s);
-        if (s.status === "COMPLETED" || s.status === "FAILED") {
-          if (statusPollingRef.current) {
-            clearInterval(statusPollingRef.current);
-            setIsPolling(false);
-          }
-          if (accountAddress && s.status === "COMPLETED")
+        if (!mountedRef.current) return;
+        // Ignore late responses for an older quote
+        if (activeQuoteIdRef.current !== quoteId) return;
+
+        const normalized: TxStatus =
+          s?.status === "COMPLETED" || s?.status === "FAILED"
+            ? s.status
+            : s?.status === "PROCESSING"
+            ? "PROCESSING"
+            : "PENDING";
+
+        setStatus({ ...s, status: normalized });
+
+        if (normalized === "COMPLETED" || normalized === "FAILED") {
+          clearStatusTimers();
+          setIsPolling(false);
+          if (accountAddress && normalized === "COMPLETED") {
             fetchBalances(accountAddress);
+          }
         }
       } catch (err) {
         console.error("Error polling status:", err);
-        if (statusPollingRef.current) {
-          clearInterval(statusPollingRef.current);
-          setIsPolling(false);
-        }
+        clearStatusTimers();
+        setIsPolling(false);
+        setStatus({ status: "UNKNOWN", error: "Polling error" });
       }
-    }, 1000);
+    }, 3000);
   };
 
   // Swap
@@ -209,6 +275,8 @@ export function useOneBalance() {
     setSwapping(true);
     setError(null);
     setSuccess(false);
+    setStatus({ status: "PENDING" }); // reset UI for a fresh swap
+
     try {
       let q = quote;
       if (!q) {
@@ -238,14 +306,19 @@ export function useOneBalance() {
         setQuote(q);
       }
       if (!q) throw new Error("Failed to get a quote for the swap");
+
       const signed = await signQuote(q, embeddedWallet);
-      console.log(signed);
       await executeQuote(signed);
+
+      // begin polling this specific quote id
       startStatusPolling(q.id);
       setSuccess(true);
     } catch (err: any) {
       console.error("Swap error:", err);
       setError(err?.message || "Failed to complete swap");
+      setStatus({ status: "FAILED", error: err?.message || "Swap failed" });
+      clearStatusTimers();
+      setIsPolling(false);
     } finally {
       setLoading(false);
       setSwapping(false);

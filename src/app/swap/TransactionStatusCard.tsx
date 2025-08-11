@@ -15,27 +15,27 @@ export const TransactionStatusCard: React.FC = () => {
           <span className="text-white/60">Status:</span>
           <span
             className={`font-medium ${
-              ob.status.status === "COMPLETED"
+              ob.status?.status === "COMPLETED"
                 ? "text-emerald-300"
-                : ob.status.status === "FAILED"
+                : ob.status?.status === "FAILED"
                 ? "text-rose-300"
                 : "text-amber-300"
             }`}
           >
-            {ob.status.status || "Pending"}
+            {ob.status?.status || "Pending"}
           </span>
         </div>
 
-        {ob.status.originChainOperations?.length > 0 && (
+        {ob.status?.originChainOperations?.length > 0 && (
           <ExplorerRow
             label="Origin Chain:"
-            url={ob.status.originChainOperations[0].explorerUrl}
+            url={ob.status?.originChainOperations?.[0]?.explorerUrl}
           />
         )}
-        {ob.status.destinationChainOperations?.length > 0 && (
+        {ob.status?.destinationChainOperations?.length > 0 && (
           <ExplorerRow
             label="Destination Chain:"
-            url={ob.status.destinationChainOperations[0].explorerUrl}
+            url={ob.status?.destinationChainOperations[0].explorerUrl}
           />
         )}
       </div>

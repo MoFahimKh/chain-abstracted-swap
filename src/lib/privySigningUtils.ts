@@ -1,77 +1,85 @@
 import { Address, createWalletClient, custom, Hash } from "viem";
-import { ConnectedWallet } from "@privy-io/react-auth";
-import { ChainOperation, Quote } from "@/lib/types/quote";
+import type { ConnectedWallet } from "@privy-io/react-auth";
+import type { ChainOperation, Quote } from "@/lib/types/quote";
+
+type Eip712TypedData = {
+  domain: { chainId: number; [k: string]: any };
+  types: Record<string, Array<{ name: string; type: string }>>;
+  primaryType: string;
+  message: Record<string, any>;
+};
 
 export const signTypedDataWithPrivy =
   (embeddedWallet: ConnectedWallet) =>
-  async (typedData: any): Promise<Hash> => {
+  async (typedData: Eip712TypedData): Promise<Hash> => {
     const provider = await embeddedWallet.getEthereumProvider();
     const walletClient = createWalletClient({
       transport: custom(provider),
       account: embeddedWallet.address as Address,
     });
-
-    return walletClient.signTypedData(typedData);
+    return walletClient.signTypedData(typedData as any);
   };
 
-// Create a function to sign a chain operation
+async function ensureChain(provider: any, targetChainIdDec: number) {
+  const hex = "0x" + targetChainIdDec.toString(16);
+  const current = await provider.request({ method: "eth_chainId" });
+  if (current !== hex) {
+    try {
+      await provider.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: hex }],
+      });
+    } catch (e) {
+      throw new Error(`Please switch network to chainId ${targetChainIdDec}.`);
+    }
+  }
+}
+
 export const signOperation =
   (embeddedWallet: ConnectedWallet) =>
   (operation: ChainOperation): (() => Promise<ChainOperation>) =>
   async () => {
     const provider = await embeddedWallet.getEthereumProvider();
-    const activeChainIdHex = await provider.request({ method: "eth_chainId" });
-    const activeChainId = parseInt(activeChainIdHex, 16);
-
-    // Force the chainId to match the active chain
-    if (operation?.typedDataToSign?.domain) {
-      operation.typedDataToSign.domain.chainId = activeChainId;
+    const requiredChainId = operation?.typedDataToSign?.domain?.chainId;
+    if (typeof requiredChainId !== "number") {
+      throw new Error("typedDataToSign.domain.chainId is missing.");
     }
-
+    await ensureChain(provider, requiredChainId);
     const signature = await signTypedDataWithPrivy(embeddedWallet)(
-      operation.typedDataToSign
+      operation.typedDataToSign as Eip712TypedData
     );
-
     return {
       ...operation,
-      userOp: { ...operation.userOp, signature },
+      userOp: {
+        ...operation.userOp,
+        signature,
+      },
     };
   };
 
-// Create a function to sign the entire quote
 export const signQuote = async (
   quote: Quote,
   embeddedWallet: ConnectedWallet
 ) => {
   const signWithEmbeddedWallet = signOperation(embeddedWallet);
-
-  const signedQuote = {
-    ...quote,
-  };
-
-  // Sign all operations in sequence
+  const signedQuote: any = { ...quote };
   if (quote.originChainsOperations) {
     signedQuote.originChainsOperations = await sequentialPromises(
       quote.originChainsOperations.map(signWithEmbeddedWallet)
     );
   }
-
   if (quote.destinationChainOperation) {
     signedQuote.destinationChainOperation = await signWithEmbeddedWallet(
       quote.destinationChainOperation
     )();
   }
-
   return signedQuote;
 };
 
-// Helper to run an array of lazy promises in sequence
 export const sequentialPromises = (
-  promises: (() => Promise<any>)[]
-): Promise<any[]> => {
-  return promises.reduce<Promise<any[]>>(
-    (acc, curr) =>
-      acc.then((results) => curr().then((result) => [...results, result])),
+  factories: Array<() => Promise<any>>
+): Promise<any[]> =>
+  factories.reduce<Promise<any[]>>(
+    (acc, next) => acc.then((arr) => next().then((val) => [...arr, val])),
     Promise.resolve([])
   );
-};

@@ -64,7 +64,6 @@ export async function getQuote(params: {
 }) {
   try {
     const response = await apiClient.post("/v1/quote", params);
-    console.log("response", response);
     return response.data;
   } catch (error) {
     console.error("Error getting quote:", error);
@@ -76,7 +75,7 @@ export async function getQuote(params: {
 export async function executeQuote(signedQuote: any) {
   try {
     const response = await apiClient.post("/quotes/execute-quote", signedQuote);
-    console.log("response", response);
+    console.log("executed swap", response);
     return response.data;
   } catch (error) {
     console.error("Error executing quote:", error);
