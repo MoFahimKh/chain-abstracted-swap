@@ -1,57 +1,50 @@
 "use client";
 
-import React, { ChangeEvent, useEffect, useState } from "react";
+import React, { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { useOneBalance } from "@/hooks/useOneBalance";
-import { MIN_ETH, MIN_USDC } from "@/utils/constants";
+import TokenSelect from "./TokenSelect";
 
 export const SwapCard: React.FC = () => {
   const {
+    tokens,
+    fromAssetId,
+    toAssetId,
+    fromToken,
+    toToken,
+    onSelectFrom,
+    onSelectTo,
+
     swapAmount,
+    setSwapAmount,
     estimatedAmount,
     fetchingQuote,
-    swapDirection,
+    fetchEstimatedQuote,
+
     toggleSwapDirection,
     handleSwap,
+
+    accountAddress,
+    embeddedWallet,
+
+    status,
     loading,
     swapping,
-    usdcBalance,
-    ethBalance,
-    accountAddress,
-    setSwapAmount,
-    setEstimatedAmount,
-    embeddedWallet,
-    fetchEstimatedQuote,
-    status,
+
+    ui: { fromBalance, isInvalid, isBusy, mustDisable },
   } = useOneBalance();
 
   const [flashStatus, setFlashStatus] = useState<string | null>(null);
 
-  const toSymbol = swapDirection === "USDC_TO_ETH" ? "ETH" : "USDC";
-  const fromSymbol = swapDirection === "USDC_TO_ETH" ? "USDC" : "ETH";
-  const fromBalanceStr = fromSymbol === "USDC" ? usdcBalance : ethBalance;
-
   const rawAmount = (swapAmount ?? "").trim();
   const parsedAmount = rawAmount === "" ? 0 : Number(rawAmount);
   const parsedEst = estimatedAmount ? Number(estimatedAmount) : NaN;
-  const estRate =
-    !Number.isNaN(parsedAmount) && parsedAmount > 0 && !Number.isNaN(parsedEst)
+  const estRate = useMemo(() => {
+    return !Number.isNaN(parsedAmount) &&
+      parsedAmount > 0 &&
+      !Number.isNaN(parsedEst)
       ? parsedEst / parsedAmount
       : null;
-
-  const minValue = fromSymbol === "ETH" ? MIN_ETH : MIN_USDC;
-  const fromBalanceNum = Number(fromBalanceStr || "0");
-  const isNaNAmount = rawAmount !== "" && Number.isNaN(parsedAmount);
-  const isZeroOrNeg = parsedAmount <= 0;
-  const isBelowMin = parsedAmount > 0 && parsedAmount < minValue;
-  const isOverBalance = parsedAmount > fromBalanceNum;
-  const isInvalid = isNaNAmount || isZeroOrNeg || isBelowMin || isOverBalance;
-
-  const hasBalance = fromBalanceNum > 0;
-
-  const isBusy =
-    status?.status === "PENDING" || status?.status === "PROCESSING";
-  const mustDisable =
-    loading || !accountAddress || isInvalid || !hasBalance || isBusy;
+  }, [parsedAmount, parsedEst]);
 
   useEffect(() => {
     const s = status?.status;
@@ -68,30 +61,23 @@ export const SwapCard: React.FC = () => {
     return () => clearTimeout(t);
   }, [status?.status]);
 
-  const handleSwapAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
+  function handleSwapAmountChange(e: ChangeEvent<HTMLInputElement>) {
     const raw = e.target.value.trim();
     if (!/^\d*\.?\d*$/.test(raw)) return;
 
     setSwapAmount(raw);
-    setEstimatedAmount(null);
-
-    if (raw === "" || raw === ".") return;
-
+    if (raw === "" || raw === ".") {
+      return;
+    }
     const amount = Number(raw);
     if (!Number.isFinite(amount) || amount <= 0) return;
 
-    const fromSymbolLocal = swapDirection === "USDC_TO_ETH" ? "USDC" : "ETH";
-    const min = fromSymbolLocal === "ETH" ? MIN_ETH : MIN_USDC;
-    const balance = Number(
-      (fromSymbolLocal === "USDC" ? usdcBalance : ethBalance) || "0"
-    );
+    if (accountAddress && embeddedWallet) {
+      fetchEstimatedQuote(raw);
+    }
+  }
 
-    if (amount < min || amount > balance) return;
-
-    if (accountAddress && embeddedWallet) fetchEstimatedQuote(raw);
-  };
-
-  const renderStatus = () => {
+  function renderStatus() {
     const s =
       status?.status === "PENDING" || status?.status === "PROCESSING"
         ? status?.status
@@ -124,21 +110,28 @@ export const SwapCard: React.FC = () => {
       );
     }
     return null;
-  };
+  }
+
+  const rateText =
+    estRate !== null && toToken && fromToken
+      ? `1 ${fromToken.symbol} ≈ ${
+          toToken.decimals <= 6 ? estRate.toFixed(2) : estRate.toFixed(6)
+        } ${toToken.symbol}`
+      : null;
 
   return (
     <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-3 md:mb-4">
         <h2 className="text-sm font-semibold text-white/90">Swap</h2>
         <div className="text-[11px] text-white/60">
-          Balance: {fromBalanceStr ?? "—"} {fromSymbol}
+          Balance: {fromBalance ?? "—"} {fromToken?.symbol ?? ""}
         </div>
       </div>
 
       <div className="space-y-3">
         <div
           className={`rounded-2xl border p-4 ${
-            isBelowMin || isOverBalance
+            isInvalid
               ? "border-rose-400/40 bg-rose-400/5"
               : "border-white/10 bg-white/5"
           }`}
@@ -160,36 +153,20 @@ export const SwapCard: React.FC = () => {
               className="flex-1 bg-transparent text-2xl md:text-3xl font-semibold tracking-tight text-white placeholder-white/30 focus:outline-none"
               pattern="[0-9]*[.]?[0-9]*"
             />
-            <TokenChip symbol={fromSymbol} />
+            <div className="w-52">
+              <TokenSelect
+                label="From"
+                tokens={tokens}
+                selectedId={fromAssetId}
+                onSelect={onSelectFrom}
+                disabled={isBusy}
+              />
+            </div>
           </div>
-          <div className="mt-2 flex items-center justify-between text-[11px]">
-            <span className="text-white/50">From chain</span>
-            <span className="text-white/40">
-              Min:{" "}
-              {fromSymbol === "ETH"
-                ? "0.000000000000000001 ETH"
-                : "0.000001 USDC"}
-            </span>
-          </div>
-          {!hasBalance && (
-            <div className="mt-2 text-[11px] text-amber-300">
-              Your {fromSymbol} balance is 0. Add tokens to your Smart Contract
-              Account (SCA). Adding to an EOA will not work.
-            </div>
-          )}
-          {isBelowMin && hasBalance && (
+
+          {isInvalid && (
             <div className="mt-2 text-[11px] text-rose-300">
-              Amount is below the minimum allowed for {fromSymbol}.
-            </div>
-          )}
-          {isOverBalance && hasBalance && (
-            <div className="mt-2 text-[11px] text-rose-300">
-              Amount exceeds available balance.
-            </div>
-          )}
-          {isNaNAmount && (
-            <div className="mt-2 text-[11px] text-rose-300">
-              Enter a valid number.
+              Enter a valid amount (and not over balance).
             </div>
           )}
         </div>
@@ -199,14 +176,14 @@ export const SwapCard: React.FC = () => {
             onClick={toggleSwapDirection}
             aria-label="Reverse swap direction"
             title="Reverse swap direction"
-            className="rounded-full border border-white/10 bg-white/10 px-3 py-2 text-white hover:bg-white/20 transition-all shadow-[0_0_0_0_rgba(0,0,0,0)] hover:shadow-[0_0_20px_2px_rgba(255,171,64,0.25)]"
+            className="rounded-full border border-white/10 bg-white/10 px-3 py-2 text-white hover:bg-white/20 transition-all"
             disabled={isBusy}
           >
             ↕
           </button>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 mt-3">
           <div className="flex items-center justify-between gap-3">
             <div className="min-h-[40px] flex-1 flex items-center">
               {fetchingQuote ? (
@@ -221,21 +198,25 @@ export const SwapCard: React.FC = () => {
                 </span>
               )}
             </div>
-            <TokenChip symbol={toSymbol} />
+            <div className="w-52">
+              <TokenSelect
+                label="To"
+                tokens={tokens}
+                selectedId={toAssetId}
+                onSelect={onSelectTo}
+                disabled={isBusy}
+              />
+            </div>
           </div>
-          <div className="mt-2 text-[11px] text-white/50">To chain</div>
+          <div className="mt-2 text-[11px] text-white/50">To token</div>
         </div>
       </div>
 
       <div className="mt-3 md:mt-4 flex flex-col gap-1 text-xs text-white/60">
-        {estRate !== null && (
+        {rateText && (
           <div className="flex justify-between">
             <span>Est. rate</span>
-            <span>
-              1 {fromSymbol} ≈{" "}
-              {toSymbol === "ETH" ? estRate.toFixed(6) : estRate.toFixed(2)}{" "}
-              {toSymbol}
-            </span>
+            <span>{rateText}</span>
           </div>
         )}
         <div className="flex justify-between">
@@ -268,19 +249,8 @@ export const SwapCard: React.FC = () => {
       </button>
 
       {renderStatus()}
-
-      {fromSymbol === "USDC" && (
-        <div className="mt-2 text-[11px] text-white/60 text-center">
-          No gas tokens needed — fees are paid from your {fromSymbol} balance.
-        </div>
-      )}
     </div>
   );
 };
 
-const TokenChip: React.FC<{ symbol: string }> = ({ symbol }) => (
-  <span className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-white/90">
-    <span className="inline-block h-5 w-5 rounded-full bg-white/20" />
-    <span className="font-medium">{symbol}</span>
-  </span>
-);
+export default SwapCard;

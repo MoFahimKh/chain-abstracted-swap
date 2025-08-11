@@ -39,7 +39,7 @@ export default function SwapPage() {
 
           {ob.error &&
             !(
-              ob.error === "Failed to set up OneBalance account" &&
+              ob.error == "Failed to set up OneBalance account" &&
               ob.accountAddress
             ) && (
               <GlassCard>
