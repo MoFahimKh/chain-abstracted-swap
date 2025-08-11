@@ -78,15 +78,6 @@ export function useOneBalance() {
     router.push("/");
   };
 
-  const handleSwapAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    if (isNaN(Number(value)) || Number(value) <= 0) return;
-    setSwapAmount(value);
-    setEstimatedAmount(null);
-    if (Number(value) > 0 && accountAddress && embeddedWallet)
-      fetchEstimatedQuote(value);
-  };
-
   const toggleSwapDirection = () => {
     setQuote(null);
     setEstimatedAmount(null);
@@ -248,6 +239,7 @@ export function useOneBalance() {
       }
       if (!q) throw new Error("Failed to get a quote for the swap");
       const signed = await signQuote(q, embeddedWallet);
+      console.log(signed);
       await executeQuote(signed);
       startStatusPolling(q.id);
       setSuccess(true);
@@ -272,6 +264,7 @@ export function useOneBalance() {
     connectedRaw,
     connectedLabel,
     accountAddress,
+    embeddedWallet,
 
     // balances
     usdcBalance,
@@ -282,6 +275,9 @@ export function useOneBalance() {
     swapAmount,
     estimatedAmount,
     fetchingQuote,
+    setSwapAmount,
+    setEstimatedAmount,
+    fetchEstimatedQuote,
 
     // exec state
     loading,
@@ -295,7 +291,6 @@ export function useOneBalance() {
 
     // handlers
     handleLogout,
-    handleSwapAmountChange,
     toggleSwapDirection,
     handleSwap,
   } as const;

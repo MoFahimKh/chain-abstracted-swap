@@ -1,7 +1,6 @@
 import { Address, createWalletClient, custom, Hash } from "viem";
 import { ConnectedWallet } from "@privy-io/react-auth";
 import { ChainOperation, Quote } from "@/lib/types/quote";
-// import { base } from "viem/chains";
 
 export const signTypedDataWithPrivy =
   (embeddedWallet: ConnectedWallet) =>
@@ -9,7 +8,6 @@ export const signTypedDataWithPrivy =
     const provider = await embeddedWallet.getEthereumProvider();
     const walletClient = createWalletClient({
       transport: custom(provider),
-      // chain: base,
       account: embeddedWallet.address as Address,
     });
 
@@ -21,6 +19,15 @@ export const signOperation =
   (embeddedWallet: ConnectedWallet) =>
   (operation: ChainOperation): (() => Promise<ChainOperation>) =>
   async () => {
+    const provider = await embeddedWallet.getEthereumProvider();
+    const activeChainIdHex = await provider.request({ method: "eth_chainId" });
+    const activeChainId = parseInt(activeChainIdHex, 16);
+
+    // Force the chainId to match the active chain
+    if (operation?.typedDataToSign?.domain) {
+      operation.typedDataToSign.domain.chainId = activeChainId;
+    }
+
     const signature = await signTypedDataWithPrivy(embeddedWallet)(
       operation.typedDataToSign
     );

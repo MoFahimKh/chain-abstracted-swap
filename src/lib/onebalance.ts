@@ -76,6 +76,7 @@ export async function getQuote(params: {
 export async function executeQuote(signedQuote: any) {
   try {
     const response = await apiClient.post("/quotes/execute-quote", signedQuote);
+    console.log("response", response);
     return response.data;
   } catch (error) {
     console.error("Error executing quote:", error);

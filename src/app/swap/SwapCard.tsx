@@ -1,10 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { ChangeEvent } from "react";
 import { useOneBalance } from "@/hooks/useOneBalance";
-
-const MIN_ETH = 1e-18;
-const MIN_USDC = 1e-6;
+import { MIN_ETH, MIN_USDC } from "@/utils/constants";
 
 export const SwapCard: React.FC = () => {
   const {
@@ -12,7 +10,6 @@ export const SwapCard: React.FC = () => {
     estimatedAmount,
     fetchingQuote,
     swapDirection,
-    handleSwapAmountChange,
     toggleSwapDirection,
     handleSwap,
     loading,
@@ -20,13 +17,18 @@ export const SwapCard: React.FC = () => {
     usdcBalance,
     ethBalance,
     accountAddress,
+    setSwapAmount,
+    setEstimatedAmount,
+    embeddedWallet,
+    fetchEstimatedQuote,
   } = useOneBalance();
 
   const toSymbol = swapDirection === "USDC_TO_ETH" ? "ETH" : "USDC";
   const fromSymbol = swapDirection === "USDC_TO_ETH" ? "USDC" : "ETH";
-  const fromBalance = fromSymbol === "USDC" ? usdcBalance : ethBalance;
+  const fromBalanceStr = fromSymbol === "USDC" ? usdcBalance : ethBalance;
 
-  const parsedAmount = Number(swapAmount || 0);
+  const rawAmount = (swapAmount ?? "").trim();
+  const parsedAmount = rawAmount === "" ? 0 : Number(rawAmount);
   const parsedEst = estimatedAmount ? Number(estimatedAmount) : NaN;
   const estRate =
     !Number.isNaN(parsedAmount) && parsedAmount > 0 && !Number.isNaN(parsedEst)
@@ -34,25 +36,51 @@ export const SwapCard: React.FC = () => {
       : null;
 
   const minValue = fromSymbol === "ETH" ? MIN_ETH : MIN_USDC;
+  const fromBalanceNum = Number(fromBalanceStr || "0");
+  const isNaNAmount = rawAmount !== "" && Number.isNaN(parsedAmount);
+  const isZeroOrNeg = parsedAmount <= 0;
   const isBelowMin = parsedAmount > 0 && parsedAmount < minValue;
-  const isInvalid = parsedAmount <= 0 || isBelowMin;
+  const isOverBalance = parsedAmount > fromBalanceNum;
+  const isInvalid = isNaNAmount || isZeroOrNeg || isBelowMin || isOverBalance;
 
-  const hasBalance = Number(fromBalance || "0") > 0;
+  const hasBalance = fromBalanceNum > 0;
   const mustDisable = loading || !accountAddress || isInvalid || !hasBalance;
 
+  const handleSwapAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.trim();
+    if (!/^\d*\.?\d*$/.test(raw)) return;
+
+    setSwapAmount(raw);
+    setEstimatedAmount(null);
+
+    if (raw === "" || raw === ".") return;
+
+    const amount = Number(raw);
+    if (!Number.isFinite(amount) || amount <= 0) return;
+
+    const fromSymbol = swapDirection === "USDC_TO_ETH" ? "USDC" : "ETH";
+    const min = fromSymbol === "ETH" ? MIN_ETH : MIN_USDC;
+    const balance = Number(
+      (fromSymbol === "USDC" ? usdcBalance : ethBalance) || "0"
+    );
+
+    if (amount < min || amount > balance) return;
+
+    if (accountAddress && embeddedWallet) fetchEstimatedQuote(raw);
+  };
   return (
     <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-3 md:mb-4">
         <h2 className="text-sm font-semibold text-white/90">Swap</h2>
         <div className="text-[11px] text-white/60">
-          Balance: {fromBalance ?? "—"} {fromSymbol}
+          Balance: {fromBalanceStr ?? "—"} {fromSymbol}
         </div>
       </div>
 
       <div className="space-y-3">
         <div
           className={`rounded-2xl border p-4 ${
-            isBelowMin
+            isBelowMin || isOverBalance
               ? "border-rose-400/40 bg-rose-400/5"
               : "border-white/10 bg-white/5"
           }`}
@@ -61,11 +89,18 @@ export const SwapCard: React.FC = () => {
             <input
               inputMode="decimal"
               type="text"
-              value={swapAmount}
+              value={
+                swapAmount === undefined ||
+                swapAmount === null ||
+                swapAmount === ""
+                  ? "0"
+                  : swapAmount
+              }
               onChange={handleSwapAmountChange}
-              placeholder="0.0"
+              placeholder="0"
               aria-label="From amount"
               className="flex-1 bg-transparent text-2xl md:text-3xl font-semibold tracking-tight text-white placeholder-white/30 focus:outline-none"
+              pattern="[0-9]*[.]?[0-9]*"
             />
             <TokenChip symbol={fromSymbol} />
           </div>
@@ -87,6 +122,16 @@ export const SwapCard: React.FC = () => {
           {isBelowMin && hasBalance && (
             <div className="mt-2 text-[11px] text-rose-300">
               Amount is below the minimum allowed for {fromSymbol}.
+            </div>
+          )}
+          {isOverBalance && hasBalance && (
+            <div className="mt-2 text-[11px] text-rose-300">
+              Amount exceeds available balance.
+            </div>
+          )}
+          {isNaNAmount && (
+            <div className="mt-2 text-[11px] text-rose-300">
+              Enter a valid number.
             </div>
           )}
         </div>
@@ -146,7 +191,7 @@ export const SwapCard: React.FC = () => {
 
       <button
         onClick={handleSwap}
-        // disabled={mustDisable}
+        disabled={mustDisable}
         className={`mt-4 w-full py-3 md:py-3.5 rounded-2xl font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-[#FFAB40]/40 ${
           mustDisable
             ? "bg-white/10 text-white/40 cursor-not-allowed border border-white/10"
